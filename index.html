@@ -4,10 +4,6 @@
   <meta charset="UTF-8">
   <meta name="color-scheme" content="light">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1a1a2e">
-<link rel="icon" href="icon-192.png">
-
   <title>Séquenceur MIDI v114</title>
   <style>
     html { color-scheme: light only; }
@@ -339,7 +335,7 @@
 
   <div style="width:100%;max-width:500px;display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 0;">
     <div class="status" id="status" style="margin-top:0;">MIDI: En attente de connexion...</div>
-    <div class="version-label" style="font-size:11px;color:#555;white-space:nowrap;">v119</div>
+    <div class="version-label" style="font-size:11px;color:#555;white-space:nowrap;">v120</div>
   </div>
 
   <header>
@@ -4730,9 +4726,15 @@
         const pts = [];
         st.pts.forEach(p => { const i = measureStaveInfo[p[0]]; if (i) pts.push([i.x + p[1] * i.width, i.y + p[2]]); });
         if (pts.length < 2) return;
-        ctx.save(); ctx.setStrokeStyle(st.c); ctx.setLineWidth(st.w); ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
-        for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k][0], pts[k][1]);
-        ctx.stroke(); ctx.restore();
+        // Même rendu que l'aperçu pendant le dessin (<polyline> aux bouts arrondis) : avec le tracé
+        // VexFlow, les bouts étaient coupés « à plat » et le trait semblait raccourcir une fois fini.
+        const g = svg && (svg.querySelector('g[transform]') || svg.querySelector('g') || svg);
+        if (!g) return;
+        const pl = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        pl.setAttribute('fill', 'none'); pl.setAttribute('stroke', st.c); pl.setAttribute('stroke-width', st.w);
+        pl.setAttribute('stroke-linecap', 'round'); pl.setAttribute('stroke-linejoin', 'round');
+        pl.setAttribute('points', pts.map(p => p[0] + ',' + p[1]).join(' '));
+        g.appendChild(pl);
       });
     }
     function annotToDesign(e) {
@@ -4836,7 +4838,9 @@
         const had = ptrs.delete(e.pointerId);
         if (ptrs.size < 2) pinch = null;
         if (!had || !stroke) return;
-        const st = stroke; dropLive();
+        const st = stroke;
+        if (!st.eraser) { const d = annotToDesign(e); const a = d && annotAnchor(d.x, d.y); if (a && (st.last.x !== d.x || st.last.y !== d.y)) st.pts.push(a); }
+        dropLive();
         if (st.eraser) { if (!erased) undoStack.pop(); return; }
         if (st.pts.length > 1) { pushUndo(); annotations.push({ c: st.c, w: st.w, pts: st.pts }); renderScore(); }
       };
@@ -6646,14 +6650,6 @@
   </div>
   <div id="lib-body" class="lib-body"></div>
 </div>
-
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js').catch(function (e) { console.warn('SW:', e); });
-  });
-}
-</script>
 </body>
 </html>
 .
